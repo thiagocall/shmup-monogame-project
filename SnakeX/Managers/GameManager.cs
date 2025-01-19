@@ -26,9 +26,9 @@ public class GameManager : Game
     Vector2 _starShipPosition;
     float _starShipSpeed;
     // Configurações
-    private const float _bulletSpeed = 600f; // Velocidade do projétil (pixels por segundo)
-    private const float _bulletRate = 60; // _bulletRate / 60 tiros Tiros por segundo 
-    private ushort _reloadSpeed = 14; // _bulletRate / 60 tiros Tiros por segundo 
+    private const float _bulletSpeed = 1000f; // Velocidade do projétil (pixels por segundo)
+    private const float _bulletRate = 80; // _bulletRate / 60 tiros Tiros por segundo 
+    private ushort _reloadSpeed = 7; // _bulletRate / 60 tiros Tiros por segundo 
     private ushort _bulletStatus = 60;
     float _starShipRotate = 0f;
     Rectangle _stickPos = new Rectangle(0, 0, 32, 32);
@@ -44,8 +44,8 @@ public class GameManager : Game
     private float AsteroidSpawnRate = 3.5f; // Asteroides por segundo
     private float _timeSinceLastAsteroid = 0f;
     private Random _random = new Random();
-    private const float ShipCollisionWidth = 30f; // Largura do retângulo de colisão
-    private const float ShipCollisionHeight = 50f; // Altura do retângulo de colisão
+    private const float ShipCollisionWidth = 10f; // Largura do retângulo de colisão
+    private const float ShipCollisionHeight = 20f; // Altura do retângulo de colisão
 
     // Enemies
     private List<Enemy> _enemies = new List<Enemy>();
@@ -225,19 +225,10 @@ public class GameManager : Game
             for (int j = _bullets.Count - 1; j >= 0; j--)
             {
                 // Calcular o retângulo de colisão do projetil
-
-                 Rectangle projetilRectangle = new Rectangle(
-                    (int)_bullets[j].Position.X,
-                    (int)_bullets[j].Position.Y,
-                    (int)(2 * 2),
-                    (int)(2 * 2)
-                );
-
-
                 // Verificar se o projétil está colidindo com o asteroide
-                if (enemy.EnemyRectangle.Contains(projetilRectangle))
+                if (enemy.EnemyRectangle.Contains(_bullets[j].HurtBox))
                 {
-                    Rectangle rec = Rectangle.Intersect(projetilRectangle, enemy.EnemyRectangle);
+                    Rectangle rec = Rectangle.Intersect(_bullets[j].HurtBox, enemy.EnemyRectangle);
                     _explosions.Add(new Explosion(enemy.EnemyRectangle.Location.ToVector2()));
                     _bullets.RemoveAt(j);
                     _enemies.RemoveAt(ii);
@@ -414,7 +405,7 @@ public class GameManager : Game
 
         for (int i = 0; i < _explosions.Count; i++)
         {
-            _explosions[i].Update(deltaTime);
+            _explosions[i].UpdateAndFinish(deltaTime);
             if (_explosions[i].IsExpired){
                 _explosions[i].Stop();
                 _explosions.RemoveAt(i);
@@ -566,6 +557,8 @@ public class GameManager : Game
 
         ConstrainStarShipWithinBounds();
 
+
+        // Desenha as balas
         foreach (var bullet in _bullets)
         {
             var _rad = bullet.radian - 1.5708f;
@@ -582,6 +575,7 @@ public class GameManager : Game
             0f);
         }
 
+        // Desenha os Asteroides
         foreach (var asteroid in _asteroids)
         {
             _spriteBatch.Draw(
@@ -596,6 +590,8 @@ public class GameManager : Game
             0f);
         }
 
+
+        // Desenha os Inimigos
          foreach (var enemy in _enemies)
         {
             enemy.Draw(_spriteBatch);
@@ -619,7 +615,7 @@ public class GameManager : Game
 
                 _spriteBatch.Draw(
                     collisionTexture,
-                    shipCollisionRectangle,
+                    player.HurtBox,
                     Color.Red * 0.5f // Cor semitransparente
                 );
 
@@ -641,11 +637,7 @@ public class GameManager : Game
             _bullets.ForEach(x =>{
                 _spriteBatch.Draw(
                     collisionTexture,
-                    new Rectangle(
-                        (int)(x.Position.X - 10),
-                        (int)(x.Position.Y -10),
-                        15,15
-                    ),
+                    x.HurtBox.Location.ToVector2(),
                     Color.Red * 0.5f // Cor semitransparente
                     );}
                     );
@@ -696,6 +688,9 @@ public class GameManager : Game
     private void FireProjectile(Vector2 startPosition, float angle, float speed)
     {
 
+        // Verifica possibildiade de tiro:
+        if (_bulletStatus < _bulletRate -20) return;
+
         Vector2 leftWing = shipSize / new Vector2(- _starShipTexture.Width / 2, 0); // Asa esquerda
 
         Vector2 rotatedLeftWing = RotatePoint(leftWing, angle);
@@ -704,8 +699,7 @@ public class GameManager : Game
 
         var rotated = center + rotatedLeftWing;
 
-        // Verifica possibildiade de tiro:
-        if (_bulletStatus < _bulletRate) return;
+
         // Calcular a velocidade com base no ângulo
         // Ajustar o ângulo para alinhar com a ponta da nave
         float adjustedAngle = angle - MathF.PI / 2;
@@ -721,8 +715,13 @@ public class GameManager : Game
         );
 
 
+        var shipRect = GetShipCollisionRectangle();
+
+
+
         // Criar um novo projétil e adicioná-lo à lista
-        _bullets.Add(new Bullet(startPosition, velocity, _starShipRotate));
+        var position_fire1 = shipRect.Location.ToVector2() + new Vector2(5f,- 10);
+        _bullets.Add(new Bullet(position_fire1, velocity, _starShipRotate));
 
         var windPosLeft = CalculateShipTWindLeft(_starShipRotate);
         var windPosRight = CalculateShipTWindRight(_starShipRotate);
@@ -732,8 +731,15 @@ public class GameManager : Game
 
             // Vector2 point = RotatePointForRelative(startPosition + new Vector2(50f,25f),startPosition,_starShipRotate);
 
-            _bullets.Add(new Bullet(windPosLeft, velocity, _starShipRotate));
-            _bullets.Add(new Bullet(windPosRight, velocity, _starShipRotate));
+            var position_fire2 = position_fire1 + new Vector2(-10f, 0);
+            var position_fire3 = position_fire1 + new Vector2(10f, 0);
+            var position_fire4 = position_fire1 + new Vector2(-20f, 0);
+            var position_fire5 = position_fire1 + new Vector2(20f, 0);
+
+            _bullets.Add(new Bullet(position_fire2, velocity, _starShipRotate));
+            _bullets.Add(new Bullet(position_fire3, velocity, _starShipRotate));
+            _bullets.Add(new Bullet(position_fire4, velocity, _starShipRotate));
+            _bullets.Add(new Bullet(position_fire5, velocity, _starShipRotate));
 
             //adjustedAngle = angle + 0.7854f - MathF.PI / 2;
             
@@ -867,10 +873,12 @@ private void SpawnEnemies()
 private Rectangle GetShipCollisionRectangle()
 {
     return new Rectangle(
-        (int)(_starShipPosition.X - ShipCollisionWidth / 2),
-        (int)(_starShipPosition.Y - ShipCollisionHeight / 2),
+        (int)(_starShipPosition.X + 20f),
+        (int)(_starShipPosition.Y + 10f),
+        //   (int)(_starShipPosition.X - ShipCollisionWidth / 2),
+        // (int)(_starShipPosition.Y - ShipCollisionHeight / 2),
         (int)ShipCollisionWidth,
-        (int)ShipCollisionHeight
+        (int)ShipCollisionHeight + 10
     );
 }
 

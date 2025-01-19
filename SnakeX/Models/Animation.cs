@@ -68,6 +68,8 @@ namespace SnakeX.Models
                 _frame = (_frame + 1) % _frames;
 
             }
+
+             _sourceRectanglesToDraw = _sourceRectangles;
     
             return _frame;
         }

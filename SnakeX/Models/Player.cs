@@ -48,11 +48,12 @@ namespace SnakeX.Models
         Radians += 0.0174533f * 4;
 
         HurtBox = new Rectangle(
-                    (int)(Position.X -14f),
-                    (int)(Position.Y + 5f),
-                    (int)(Radius * 2.2),
-                    (int)(Radius * 2.2)
-                );
+        (int)(Position.X + 20f),
+        (int)(Position.Y + 10f),
+        //   (int)(_starShipPosition.X - ShipCollisionWidth / 2),
+        // (int)(_starShipPosition.Y - ShipCollisionHeight / 2),
+        (int)10,
+        (int)30);
     }
 
     public void Draw(SpriteBatch spriteBatch)

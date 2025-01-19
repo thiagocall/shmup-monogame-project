@@ -23,6 +23,16 @@ namespace SnakeX.Models
     public void Update(float deltaTime)
     {
         Timer -= deltaTime;
+        int f = _anim.Update(0);
+        // if (f == 5){
+        //      _anim.Stop();
+        //      this.IsExpired = true;
+        //     }
+    }
+
+     public void UpdateAndFinish(float deltaTime)
+    {
+        Timer -= deltaTime;
         int f = _anim.Update();
         if (f == 5){
              _anim.Stop();
