@@ -22,7 +22,7 @@ namespace SnakeX.Models
     {
         // _texture =  _random.Next(2) == 0 ? Globals.Content.Load<Texture2D>("Enemies/UFO") : Globals.Content.Load<Texture2D>("Enemies/Paranoid");
         _texture =  Globals.Content.Load<Texture2D>("Enemies/UFO");
-        _anim = new(_texture,4, 0.1f);
+        _anim = new(_texture,4, 0.1f,1,4);
 
          Position = position;
         Velocity = velocity;
@@ -43,10 +43,10 @@ namespace SnakeX.Models
         Radians += 0.0174533f * 4;
 
         EnemyRectangle = new Rectangle(
-                    (int)(Position.X -14f),
-                    (int)(Position.Y + 5f),
-                    (int)(Radius * 2.2),
-                    (int)(Radius * 2.2)
+                    (int)(Position.X + 7f),
+                    (int)(Position.Y + 7f),
+                    (int)(Radius * 1.8),
+                    (int)(Radius * 1.8)
                 );
     }
 

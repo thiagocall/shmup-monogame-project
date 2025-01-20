@@ -25,7 +25,7 @@ namespace SnakeX.Models
     public Player(Vector2 position, Vector2 velocity, float radius, Texture2D texture, int spriteColumn, int spriteRow = 1, float frameTime = 0.1f)
     {
         _texture = texture;
-        _anim = new(_texture,spriteColumn,frameTime,spriteRow);
+        _anim = new(_texture,spriteColumn,frameTime,spriteRow,3);
         _spriteRow = spriteRow;
         _spriteColumn = spriteColumn;
 

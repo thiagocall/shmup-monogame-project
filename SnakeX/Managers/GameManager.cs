@@ -38,10 +38,13 @@ public class GameManager : Game
     private Vector2 bulletSize = new Vector2(20, 20);
     private bool BeastModeOne = true;
 
+    private float lastTime = 0f;
+
     //Asteroids
     private List<Asteroid> _asteroids = new List<Asteroid>();
     private Texture2D _asteroidTexture;
-    private float AsteroidSpawnRate = 3.5f; // Asteroides por segundo
+    private Texture2D _asteroidTexture2;
+    private float AsteroidSpawnRate = 0.2f; // Asteroides por segundo
     private float _timeSinceLastAsteroid = 0f;
     private Random _random = new Random();
     private const float ShipCollisionWidth = 10f; // Largura do retângulo de colisão
@@ -51,6 +54,12 @@ public class GameManager : Game
     private List<Enemy> _enemies = new List<Enemy>();
 
 
+    // Background
+
+
+    private Texture2D _backGround;
+
+    private Rectangle _backgroundPosition;
 
     private bool RenderHitBoxes = false;
 
@@ -80,7 +89,7 @@ public class GameManager : Game
     {
         // TODO: Add your initialization logic here
 
-        Globals.WindowSize = new(1780, 980);
+        Globals.WindowSize = new(1080, 720);
         _graphics.PreferredBackBufferWidth = Globals.WindowSize.X;
         _graphics.PreferredBackBufferHeight = Globals.WindowSize.Y;
         _graphics.ApplyChanges();
@@ -90,6 +99,7 @@ public class GameManager : Game
         _starShipPosition = new Vector2(_graphics.PreferredBackBufferWidth / 2,
                                    _graphics.PreferredBackBufferHeight / 2);
         _starShipSpeed = 500f;
+
 
         _gameState = GamePlayState.Play;
 
@@ -128,7 +138,9 @@ public class GameManager : Game
         // for (int i = 0; i < asteroidData.Length; i++) asteroidData[i] = Color.Gray;
         // _asteroidTexture.SetData(asteroidData);
 
-        _asteroidTexture = Content.Load<Texture2D>("asteroid");
+        _asteroidTexture = Content.Load<Texture2D>("asteroid1");
+        _asteroidTexture2 = Content.Load<Texture2D>("asteroid2");
+        _backGround = Content.Load<Texture2D>("Backgrounds/background_stg1");
 
         // Criar uma textura para os projéteis
         // _bulletTexture = new Texture2D(GraphicsDevice, 5, 5);
@@ -154,6 +166,16 @@ public class GameManager : Game
 
         if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
             Exit();
+
+        if (_gameState == GamePlayState.Paused)
+        {
+            var kstatePlay = Keyboard.GetState();
+            if (kstatePlay.IsKeyDown(Keys.P))
+            {
+                _gameState = GamePlayState.Play;
+            } // aqui ele não atualiza, só des
+         return;
+        }
         // Asteroids Logic
 
         // if(IntroSound){
@@ -165,6 +187,18 @@ public class GameManager : Game
             player = new Player(new Vector2(_graphics.PreferredBackBufferWidth / 2,
                                    _graphics.PreferredBackBufferHeight / 2), Vector2.Zero,10f,_starShipTexture,3,3);
         }
+
+        // Update camera
+
+        if(lastTime > 32){
+        if (_backgroundPosition.Location.Y == 0) _backgroundPosition = new Rectangle(0, _backGround.Height/4*3, _backGround.Width,_backGround.Height/4);
+
+          _backgroundPosition = new Rectangle(0, _backgroundPosition.Y - 1, _backGround.Width,_backGround.Height/4);
+
+           lastTime = 0;
+        }
+
+        lastTime += gameTime.ElapsedGameTime.Milliseconds;
 
 
 
@@ -333,11 +367,13 @@ public class GameManager : Game
                 if (_asteroids[i].AsteroidRectangle.Contains(projetilRectangle))
                 {
                     Rectangle rec = Rectangle.Intersect(projetilRectangle, _asteroids[i].AsteroidRectangle);
-                    _explosions.Add(new Explosion(_asteroids[i].AsteroidRectangle.Location.ToVector2()));
-                    _bullets.RemoveAt(j);
-                    _asteroids.RemoveAt(i);
-                    _explosionSound.Play();
-                    _score += 10;
+                    _explosions.Add(new Explosion(_asteroids[i].AsteroidRectangle.Location.ToVector2())); // Adiciono na lista das explosões da tela
+                    _bullets.RemoveAt(j); // removo o projétil
+                    _asteroids.RemoveAt(i); // removo o asteroide
+                    _explosionSound.Play(); // faço o som booommm;
+                    _score += 10; // marco o score /// mas isso vou melhorar pra frente
+                    // tipo Player.Score += 10 // não refaturei ainda o Player completo
+
 
                     // Remover projétil e asteroide
                     // _bullets.RemoveAt(j);
@@ -426,6 +462,24 @@ public class GameManager : Game
         {
             RenderHitBoxes = true;
         }
+
+
+           if (kstate.IsKeyDown(Keys.P))
+        {
+
+            if (_gameState == GamePlayState.Paused)
+            {
+                _gameState = GamePlayState.Play;
+            }
+            else {
+                _gameState = GamePlayState.Paused; // achou o erro.
+            }
+        }
+        
+
+
+       
+
 
         if (kstate.IsKeyDown(Keys.V))
         {
@@ -522,6 +576,22 @@ public class GameManager : Game
 
         _spriteBatch.Begin();
 
+
+
+         _spriteBatch.Draw(
+            _backGround,
+            Vector2.Zero, new Rectangle(0, _backGround.Height/4*3,_backGround.Width,_backGround.Height/4), Color.White,
+            0f,
+            Vector2.Zero,
+            Vector2.One,
+            SpriteEffects.None,
+            0f);
+
+         MoveCamera(gameTime);
+
+        
+
+
         // Exibir o score no canto superior esquerdo
         _spriteBatch.DrawString(_font, $"{_score}", new Vector2(10, 10), Color.SeaGreen,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
         _spriteBatch.DrawString(_font, $"{"DAMAGE:"}", new Vector2(10, 40), Color.SeaGreen,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
@@ -578,16 +648,18 @@ public class GameManager : Game
         // Desenha os Asteroides
         foreach (var asteroid in _asteroids)
         {
-            _spriteBatch.Draw(
-                _asteroidTexture,
-                asteroid.Position,
-                null,
-            Color.White,
-            asteroid.Radians,
-            new Vector2(_asteroidTexture.Width / 2, _asteroidTexture.Height / 2),
-            Vector2.Divide(Vector2.One, 15),
-            SpriteEffects.None,
-            0f);
+            // _spriteBatch.Draw(
+            //     _asteroidTexture,
+            //     asteroid.Position,
+            //     null,
+            // Color.White,
+            // asteroid.Radians,
+            // new Vector2(_asteroidTexture.Width / 2, _asteroidTexture.Height / 2),
+            // Vector2.Divide(Vector2.One, 15),
+            // SpriteEffects.None,
+            // 0f);
+
+            asteroid.Draw();
         }
 
 
@@ -624,12 +696,7 @@ public class GameManager : Game
             _asteroids.ForEach(x =>{
                 _spriteBatch.Draw(
                     collisionTexture,
-                    new Rectangle(
-                        (int)(x.Position.X - x.Radius),
-                        (int)(x.Position.Y - x.Radius),
-                        (int)(x.Radius * 2),
-                        (int)(x.Radius * 2)
-                    ),
+                    x.AsteroidRectangle,
                     Color.Red * 0.5f // Cor semitransparente
                     );}
                     );
@@ -720,7 +787,7 @@ public class GameManager : Game
 
 
         // Criar um novo projétil e adicioná-lo à lista
-        var position_fire1 = shipRect.Location.ToVector2() + new Vector2(5f,- 10);
+        var position_fire1 = shipRect.Location.ToVector2() + new Vector2(5f, -60);
         _bullets.Add(new Bullet(position_fire1, velocity, _starShipRotate));
 
         var windPosLeft = CalculateShipTWindLeft(_starShipRotate);
@@ -731,10 +798,10 @@ public class GameManager : Game
 
             // Vector2 point = RotatePointForRelative(startPosition + new Vector2(50f,25f),startPosition,_starShipRotate);
 
-            var position_fire2 = position_fire1 + new Vector2(-10f, 0);
-            var position_fire3 = position_fire1 + new Vector2(10f, 0);
-            var position_fire4 = position_fire1 + new Vector2(-20f, 0);
-            var position_fire5 = position_fire1 + new Vector2(20f, 0);
+            var position_fire2 = position_fire1 + new Vector2(-10f, 15f);
+            var position_fire3 = position_fire1 + new Vector2(10f,15);
+            var position_fire4 = position_fire1 + new Vector2(-20f, 25f);
+            var position_fire5 = position_fire1 + new Vector2(20f, 25f);
 
             _bullets.Add(new Bullet(position_fire2, velocity, _starShipRotate));
             _bullets.Add(new Bullet(position_fire3, velocity, _starShipRotate));
@@ -791,9 +858,9 @@ public class GameManager : Game
 
     private void SpawnAsteroid()
 {
-    float velocity_asteroid = _random.Next(100) + 50;
+    float velocity_asteroid = _random.Next(60) + 30;
     // Probabilidade de um Asteroid rápido
-    if(_random.Next(100) < 45) velocity_asteroid *= 2;
+    if(_random.Next(100) < 45) velocity_asteroid *= 2f;
     // Posição inicial em uma borda da tela
     Vector2 position = new Vector2(
         _random.Next(Globals.WindowSize.X), // X aleatório
@@ -826,15 +893,15 @@ public class GameManager : Game
 
     float radius = 20f; // Tamanho fixo para os asteroides
 
-    _asteroids.Add(new Asteroid(position, velocity, radius));
+    _asteroids.Add(new Asteroid(position, velocity, radius, _random.Next(2) == 0 ? _asteroidTexture : _asteroidTexture2));
 }
 
 
 private void SpawnEnemies()
 {
-    float velocity_asteroid = _random.Next(100) + 100;
+    float velocity_asteroid = _random.Next(60-30) + 30;
     // Probabilidade de um Asteroid rápido
-    if(_random.Next(100) < 60) velocity_asteroid *= 3;
+    if(_random.Next(100) < 60) velocity_asteroid *= 2;
     // Posição inicial em uma borda da tela
     Vector2 position = new Vector2(
         _random.Next(Globals.WindowSize.X), // X aleatório
@@ -949,6 +1016,35 @@ private Vector2 RotatePointForRelative(Vector2 point, Vector2 relative, float an
                 MediaPlayer.Stop();
                 MediaPlayer.Play(_playerSound);
                 BeastModeOne = true;
+    }
+
+
+    private void MoveCamera(GameTime gameTime){
+
+
+            // if(lastTime > 100){
+
+            // lastTime = gameTime.ElapsedGameTime.Milliseconds;
+
+            
+
+          _spriteBatch.Draw(
+            _backGround,
+            Vector2.Zero, _backgroundPosition, Color.White,
+            0f,
+            Vector2.Zero,
+            Vector2.One,
+            SpriteEffects.None,
+            0f);
+
+            // }
+
+            // else {
+            //     lastTime++;
+            // }
+                  
+        
+
     }
 
     

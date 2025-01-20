@@ -25,13 +25,13 @@ namespace SnakeX.Models
         private int _frameHeight;       // Altura de cada frame
 
 
-        public Animation(Texture2D texture, int frameX, float frameTime, int frameY = 1)
+        public Animation(Texture2D texture, int frameX, float frameTime, int frameY = 1, int totalFrames = 1)
         {
             _texture = texture;
             _frameTime = frameTime;
             _frames = frameX;
             _rows = frameY;
-            _totalFrames = frameX;
+            _totalFrames = totalFrames;
             _currentFrame = 0;
             var frameWidth = _texture.Width / _frames;
             var frameHeigth = _texture.Height / _rows;
@@ -65,7 +65,7 @@ namespace SnakeX.Models
             if(_frameTimeLeft <= 0){
                 
                 _frameTimeLeft += _frameTime;
-                _frame = (_frame + 1) % _frames;
+                _frame = (_frame + 1) % _totalFrames;
 
             }
 
@@ -126,6 +126,8 @@ namespace SnakeX.Models
         }
 
         public void Draw(Vector2 pos){
+
+            _sourceRectanglesToDraw = _sourceRectanglesToDraw == null ? _sourceRectangles : _sourceRectanglesToDraw;
             Globals.SpriteBatch.Draw(
                     _texture,
                     pos,
@@ -133,7 +135,7 @@ namespace SnakeX.Models
                     Color.White,
                     0,
                     Vector2.Zero,
-                    Vector2.One,SpriteEffects.None,1);
+                    Vector2.One, SpriteEffects.None,1f);
         }
 
 

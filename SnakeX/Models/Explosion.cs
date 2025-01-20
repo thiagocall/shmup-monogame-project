@@ -16,7 +16,7 @@ namespace SnakeX.Models
     public Explosion(Vector2 position)
     {
         _texture = Globals.Content.Load<Texture2D>("explosion");
-        _anim = new(_texture,6, 0.1f);
+        _anim = new(_texture,6, 0.1f,1,6);
         Position = position;
     }
 
