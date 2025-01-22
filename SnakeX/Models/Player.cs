@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SnakeX.Events;
 
 namespace SnakeX.Models
 {
@@ -38,7 +39,7 @@ namespace SnakeX.Models
         // Estado da nave
 
         public bool _isDamaged {get; private set;} = false;       // Indica se a nave está danificada
-        private float _blinkTimer = 0f;       // Controla o tempo do efeito de piscar
+        private float _blinkTimer = 2f;       // Controla o tempo do efeito de piscar
         private float _blinkDuration = 1f;    // Duração total do efeito (em segundos)
         private float _blinkInterval = 0.1f;  // Intervalo entre alternâncias de visibilidade
         private bool _isVisible = true;       // Controla a visibilidade da nave
@@ -76,12 +77,28 @@ namespace SnakeX.Models
             Velocity = velocity;
             Radius = radius;
             Radians = 0f;
+
+            // Registra eventos
+
+            Globals.playerEventManager.Register(Events.Player.PlayerEvent.OnDamage, (p) => OnDamage((int) p));
+            Globals.gameEventManager.Register(Events.Game.GameEvent.OnPlayerDestroied, (p) => OnDestroied());
         }
 
         public void OnDamage(int damage){
 
             _isDamaged = true;
             _shipDamage -= damage;
+
+            if (_shipDamage < 1)
+            {
+                Globals.gameEventManager.Emit(Events.Game.GameEvent.OnPlayerDestroied, this);
+            }
+
+        }
+
+         public void OnDestroied(){
+
+                Globals.playerEventManager.Unregister(Events.Player.PlayerEvent.OnDamage, null);
 
         }
 
@@ -93,10 +110,16 @@ namespace SnakeX.Models
 
         public void Update(float deltaTime, Vector2 direction)
         {
+
+            float magnitude = (float)Math.Sqrt(direction.X * direction.X + direction.Y * direction.Y);
+            Vector2 normalizedDirection = magnitude > 0 ? direction / magnitude : Vector2.Zero;
+
             Timer -= deltaTime;
             int f = Update(direction);
 
-            Position += Velocity * deltaTime;
+            Vector2 finalVelocity = normalizedDirection * Velocity; // Velocity é a magnitude fixa
+
+            Position += finalVelocity * deltaTime;
             Radians += 0.0174533f * 4;
 
             HurtBox = new Rectangle(

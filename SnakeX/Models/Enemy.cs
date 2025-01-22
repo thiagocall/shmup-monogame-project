@@ -28,6 +28,13 @@ namespace SnakeX.Models
         Velocity = velocity;
         Radius =  10f; //radius;
         Radians = 0f;
+
+        EnemyRectangle = new Rectangle(
+                    (int)(Position.X + 7f),
+                    (int)(Position.Y + 7f),
+                    (int)(Radius * 1.8),
+                    (int)(Radius * 1.8)
+                );
     }
 
     public void Update(float deltaTime)

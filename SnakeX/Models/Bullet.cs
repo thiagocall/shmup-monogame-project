@@ -1,13 +1,17 @@
 namespace SnakeX;
 
-public class Bullet(Vector2 startPosition, Vector2 velocity, float _radian = 0, float damage = 10)
+public class Bullet(Vector2 startPosition, Vector2 velocity, float _radian = 0, float damage = 100)
 {
         public Vector2 Position { get; set; } = startPosition;
         private Vector2 Velocity = velocity;
 
         public float radian {get; private set;} = _radian;
 
-        public Rectangle HurtBox {get; private set;}
+        public Rectangle HurtBox = new Rectangle(
+                    (int)startPosition.X-3 ,
+                    (int)startPosition.Y-10,
+                    8,
+                    12);
         public float Damage = damage;
 
         public void Update(float deltaTime)
@@ -16,11 +20,10 @@ public class Bullet(Vector2 startPosition, Vector2 velocity, float _radian = 0, 
             Position += Velocity * deltaTime;
 
             HurtBox = new Rectangle(
-                    (int)Position.X ,
-                    (int)Position.Y,
-                    (int)(2),
-                    (int)(2)
-                );
+                    (int)Position.X-3 ,
+                    (int)Position.Y-10,
+                    8,
+                    12);
 
             
         }

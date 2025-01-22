@@ -2,14 +2,18 @@
 using System.Collections.Generic;
 using Microsoft.Xna.Framework.Media;
 using SnakeX.Models;
+using SnakeX.Sounds;
 
 namespace SnakeX;
 
 public class GameManager : Game
 {
     private float _score;
+    private readonly ScoreService scoreService;
     private float _lastimePaused = 0f;
     private Player player;
+
+    private int _bullet_wheel = 5;
 
     private GamePlayState _gameState = GamePlayState.Play; 
     private int _nextPowerUP = 1000;
@@ -27,9 +31,9 @@ public class GameManager : Game
     float _starShipSpeed;
     // Configurações
     private float _bulletSpeed = 2500; // Velocidade do projétil (pixels por segundo)
-    private float _bulletRate = 100; // _bulletRate / 60 tiros Tiros por segundo 
+    private float _bulletRate = 30; // _bulletRate / 60 tiros Tiros por segundo 
     private ushort _reloadSpeed = 7; // _bulletRate / 60 tiros Tiros por segundo 
-    private ushort _bulletStatus = 30;
+    private ushort _bulletStatus = 0;
     float _starShipRotate = 0f;
     Rectangle _stickPos = new Rectangle(0, 0, 32, 32);
     Vector2 _starShipdirection = new Vector2();  // 1 - direita, -1-esquerda
@@ -86,7 +90,9 @@ public class GameManager : Game
     {
         _graphics = new GraphicsDeviceManager(this);
         Content.RootDirectory = "Content";
-        IsMouseVisible = true;
+        IsMouseVisible = false;
+        scoreService = new ScoreService();
+        Globals.gameEventManager.Register(Events.Game.GameEvent.OnPlayerDestroied, (p) => OnPlayerDestroied());
     }
 
     protected override void Initialize()
@@ -105,7 +111,7 @@ public class GameManager : Game
         _starShipSpeed = 600f;
 
 
-        _gameState = GamePlayState.Play;
+        Globals.GameState = GamePlayState.Play;
 
         base.Initialize();
     }
@@ -125,6 +131,9 @@ public class GameManager : Game
         // TODO: use this.Content to load your game content here
         _starShipTexture = Content.Load<Texture2D>("Player/spritesheet_player");
         _bulletTexture = Content.Load<Texture2D>("shot_sprite_2");
+
+        SoundManager.Load();
+
         _startSound = Content.Load<SoundEffect>("intro_sound-1");
         _explosionSound = Content.Load<SoundEffect>("Sounds/explosion_4");
         _bulleSound = Content.Load<SoundEffect>("Sounds/shot_sound_2");
@@ -133,6 +142,7 @@ public class GameManager : Game
         _powerupSound = Content.Load<SoundEffect>("Sounds/level_up");
         _playerSound = Content.Load<Song>("Sounds/fase1_sound");
         _gameoverSound = Content.Load<Song>("Sounds/gameover_sound");
+
 
         MediaPlayer.IsRepeating = true; // Configurar replay automático
         MediaPlayer.Volume = 1.5f; // Configurar o volume (opcional)
@@ -172,12 +182,12 @@ public class GameManager : Game
         if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
             Exit();
 
-        if (_gameState == GamePlayState.Paused)
+        if (Globals.GameState == GamePlayState.Paused)
         {
             var kstatePlay = Keyboard.GetState();
             if (kstatePlay.IsKeyDown(Keys.P))
             {
-                _gameState = GamePlayState.Play;
+                Globals.GameState = GamePlayState.Play;
             } // aqui ele não atualiza, só des
          return;
         }
@@ -207,7 +217,7 @@ public class GameManager : Game
 
 
 
-        if(_gameState == GamePlayState.GameOver){
+        if(Globals.GameState == GamePlayState.GameOver){
         
             var kstateGO = Keyboard.GetState();
             
@@ -265,15 +275,15 @@ public class GameManager : Game
             {
                 // Calcular o retângulo de colisão do projetil
                 // Verificar se o projétil está colidindo com o asteroide
-                if (enemy.EnemyRectangle.Contains(_bullets[j].HurtBox))
+                if (enemy.EnemyRectangle.Intersects(_bullets[j].HurtBox))
                 {
-                    Rectangle rec = Rectangle.Intersect(_bullets[j].HurtBox, enemy.EnemyRectangle);
                     _explosions.Add(new Explosion(_bullets[j].HurtBox.Center.ToVector2()));
                     Console.WriteLine(enemy.EnemyRectangle.Center.ToVector2());
                     _bullets.RemoveAt(j);
                     _enemies.RemoveAt(ii);
                     SoundEffect.MasterVolume = 0.5f;
-                    _explosionSound.Play();
+                    // _explosionSound.Play();
+                    Globals.gameEventManager.Emit(Events.Game.GameEvent.OnExplosion, null);
 
                     _score += 50;
 
@@ -290,17 +300,13 @@ public class GameManager : Game
                 _alertCollisionSound.Play();
                 _enemies.RemoveAt(ii);
                 _explosions.Add(new Explosion(enemy.EnemyRectangle.Location.ToVector2()));
+                Globals.gameEventManager.Emit(Events.Game.GameEvent.OnExplosion,null);
                 // _explosionSound.Play();
                 // Apply Ship damage
 
-                player.OnDamage(1);
+                //player.OnDamage(1);
+                Globals.playerEventManager.Emit(Events.Player.PlayerEvent.OnDamage,1);
                 // Logic to shipDamage:
-
-                if (player._shipDamage < 1)
-                {
-                    _gameState = GamePlayState.GameOver;
-                    MediaPlayer.Stop();// Encerrar o jogo ou tratar a colisão
-                }
 
                 UpdateDamage();
 
@@ -384,7 +390,8 @@ public class GameManager : Game
                             // Asteroide derrotado
                         _explosions.Add(new Explosion(_asteroids[i].AsteroidRectangle.Location.ToVector2())); // Adiciono na lista das explosões da tela
                         _asteroids.RemoveAt(i); // removo o asteroide
-                        _explosionSound.Play(); // faço o som booommm;
+                        // _explosionSound.Play(); // faço o som booommm;
+                        Globals.gameEventManager.Emit(Events.Game.GameEvent.OnExplosion,null);
                         _score += 10; // marco o score /// mas isso vou melhorar pra frente
                     // tipo Player.Score += 10 // não refaturei ainda o Player completo
                     }
@@ -406,14 +413,12 @@ public class GameManager : Game
                 _asteroids.RemoveAt(i);
                 // Apply Ship damage
 
-                player.OnDamage(1);
-                // Logic to shipDamage:
+                Globals.playerEventManager.Emit(Events.Player.PlayerEvent.OnDamage,1);
+                Globals.gameEventManager.Emit(Events.Game.GameEvent.OnExplosion, null);
 
-                if (player._shipDamage < 1)
-                {
-                    _gameState = GamePlayState.GameOver;
-                    MediaPlayer.Stop();// Encerrar o jogo ou tratar a colisão
-                }
+                // player.OnDamage(1);
+
+                // Logic to shipDamage:
 
                 UpdateDamage();
 
@@ -483,12 +488,12 @@ public class GameManager : Game
            if (kstate.IsKeyDown(Keys.P))
         {
 
-            if (_gameState == GamePlayState.Paused)
+            if (Globals.GameState == GamePlayState.Paused)
             {
-                _gameState = GamePlayState.Play;
+                Globals.GameState = GamePlayState.Play;
             }
             else {
-                _gameState = GamePlayState.Paused; // achou o erro.
+                Globals.GameState = GamePlayState.Paused; // achou o erro.
             }
         }
         
@@ -570,6 +575,8 @@ public class GameManager : Game
         base.Update(gameTime);
     }
 
+
+    // Método responsável por atualizar o hud
     private void UpdateDamage()
     {
         _shipDamageString = "";
@@ -583,7 +590,7 @@ public class GameManager : Game
     protected override void Draw(GameTime gameTime)
     {
         
-        if(_gameState == GamePlayState.Play){
+        if(Globals.GameState == GamePlayState.Play){
         
         GraphicsDevice.Clear(Color.Black);
 
@@ -706,7 +713,7 @@ public class GameManager : Game
             _bullets.ForEach(x =>{
                 _spriteBatch.Draw(
                     collisionTexture,
-                    x.HurtBox.Location.ToVector2(),
+                    x.HurtBox,
                     Color.Red * 0.5f // Cor semitransparente
                     );}
                     );
@@ -728,7 +735,7 @@ public class GameManager : Game
 
         }
 
-        if(_gameState == GamePlayState.GameOver){
+        if(Globals.GameState == GamePlayState.GameOver){
 
 
              GraphicsDevice.Clear(Color.Black);
@@ -737,10 +744,22 @@ public class GameManager : Game
 
             _spriteBatch.Begin();
 
+            var go = "GAME OVER";
+            var tnx = "THANK'S FOR PLAYING";
+            var u = $"YOUR SCORE: {_score}";
+            var hi = $"HI SCORE: {scoreService.GetHiScore()}";
+
+            var go_len = _font.MeasureString(go);
+            var tnx_len = _font.MeasureString(tnx);
+            var u_len = _font.MeasureString($"YOUR SCORE: {_score}");
+            var hi_len = _font.MeasureString(hi);
+
             // Exibir o score no canto superior esquerdo
-            _spriteBatch.DrawString(_font, "GAME OVER", new Vector2(Globals.WindowSize.X / 2 - 80f,Globals.WindowSize.Y / 2 -40f), Color.SeaGreen,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
-            _spriteBatch.DrawString(_font, "THANK'S FOR PLAYING", new Vector2(Globals.WindowSize.X / 2 - 155f,Globals.WindowSize.Y / 2 +20f), Color.SeaGreen,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
-            _spriteBatch.DrawString(_font, $"{_score}", new Vector2(10, 10), Color.SeaGreen,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
+            _spriteBatch.DrawString(_font, go, new Vector2(Globals.WindowSize.X / 2 - (go_len.X / 2) ,Globals.WindowSize.Y / 2 -20f), Color.SeaGreen,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
+            _spriteBatch.DrawString(_font, tnx, new Vector2(Globals.WindowSize.X / 2 - (tnx_len.X/ 2) ,Globals.WindowSize.Y / 2 +0f), Color.SeaGreen,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
+            _spriteBatch.DrawString(_font, u, new Vector2(Globals.WindowSize.X / 2 - (u_len.X / 2) ,Globals.WindowSize.Y / 2 +60f), Color.SeaGreen,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
+            _spriteBatch.DrawString(_font, hi, new Vector2(Globals.WindowSize.X / 2 - (hi_len.X / 2) ,Globals.WindowSize.Y / 2 +120f), Color.SeaGreen,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
+            
 
 
              _spriteBatch.End();
@@ -758,7 +777,7 @@ public class GameManager : Game
     {
 
         // Verifica possibildiade de tiro:
-        if (_bulletStatus < _bulletRate -20) return;
+        if (_bulletStatus < _bulletRate) return;
 
         Vector2 leftWing = shipSize / new Vector2(- _starShipTexture.Width / 2, 0); // Asa esquerda
 
@@ -846,7 +865,7 @@ public class GameManager : Game
 
     private void RecuperaCadencia()
     {
-        if (_bulletStatus < 60)
+        if (_bulletStatus < _bulletRate)
             _bulletStatus += _reloadSpeed;
     }
 
@@ -904,7 +923,7 @@ public class GameManager : Game
 
 private void SpawnEnemies()
 {
-    float velocity_asteroid = _random.Next(60-30) + 30;
+    float velocity_asteroid = _random.Next(100) + 60;
     // Probabilidade de um Asteroid rápido
     if(_random.Next(100) < 60) velocity_asteroid *= 2;
     // Posição inicial em uma borda da tela
@@ -1005,17 +1024,18 @@ private Vector2 RotatePointForRelative(Vector2 point, Vector2 relative, float an
     private void RestartGame(){
 
         //  base.Initialize();
-                _gameState = GamePlayState.Play;
+                Globals.GameState = GamePlayState.Play;
                 _asteroids.Clear();
                 _bullets.Clear();
                 _enemies.Clear();
                 _explosions.Clear();
                 _score = 0;
                 player.Repair(3);
-                BeastModeOne = false;
                 _shipDamageString = "DDD";
                 _starShipPosition = new Vector2(_graphics.PreferredBackBufferWidth / 2,
                            _graphics.PreferredBackBufferHeight / 2);
+                player.Position = _starShipPosition;
+                           
                 // _starShipSpeed = 500f;
 
                 MediaPlayer.Stop();
@@ -1050,6 +1070,16 @@ private Vector2 RotatePointForRelative(Vector2 point, Vector2 relative, float an
             // }
                   
         
+
+
+    }
+    private void OnPlayerDestroied(){
+
+        // player = new Player(new Vector2(_graphics.PreferredBackBufferWidth / 2,
+        //                            _graphics.PreferredBackBufferHeight / 2), Vector2.Zero,10f,_starShipTexture,3,3,0.1f,3,3,9);
+        scoreService.SaveScore("playerOne",(int)_score);
+        Globals.GameState = GamePlayState.GameOver;
+        MediaPlayer.Stop();// Encerrar o jogo ou tratar a colisão
 
     }
 
