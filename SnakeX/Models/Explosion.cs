@@ -17,13 +17,13 @@ namespace SnakeX.Models
     {
         _texture = Globals.Content.Load<Texture2D>("explosion");
         _anim = new(_texture,6, 0.1f,1,6);
-        Position = position;
+        Position = position + new Vector2(-20f,-30f);
     }
 
     public void Update(float deltaTime)
     {
         Timer -= deltaTime;
-        int f = _anim.Update(0);
+        int f = _anim.Update(Vector2.Zero);
         // if (f == 5){
         //      _anim.Stop();
         //      this.IsExpired = true;

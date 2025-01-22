@@ -13,10 +13,11 @@ namespace SnakeX.Models
     public float Radians { get; set; }
     private readonly Animation _anim;
     private Texture2D _texture;
+    public float Health;
 
     public Rectangle AsteroidRectangle {get; private set;}
 
-    public Asteroid(Vector2 position, Vector2 velocity, float radius, Texture2D texture)
+    public Asteroid(Vector2 position, Vector2 velocity, float radius, Texture2D texture, float health = 20)
     {
         _anim = new(texture,7, 0.04f, 7, 48);
         Position = position;
@@ -24,6 +25,7 @@ namespace SnakeX.Models
         Radius = radius;
         Radians = 0f;
         _texture = texture;
+        Health = health;
     }
 
     public void Update(float deltaTime)
@@ -32,10 +34,10 @@ namespace SnakeX.Models
         Radians += 0.0174533f * 4;
 
         AsteroidRectangle = new Rectangle( // aqui ele gera o retangulo do asteroide, isso
-                    (int)(Position.X + 30f),
-                    (int)(Position.Y + 30),
-                    (int)(Radius * 3),
-                    (int)(Radius * 3)
+                    (int)(Position.X + 40f),
+                    (int)(Position.Y + 40f),
+                    (int)(Radius * 2.5),
+                    (int)(Radius * 2.5)
                 );
 
         _anim.Update();

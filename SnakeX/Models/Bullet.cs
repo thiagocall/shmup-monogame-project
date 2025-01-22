@@ -1,6 +1,6 @@
 namespace SnakeX;
 
-public class Bullet(Vector2 startPosition, Vector2 velocity, float _radian = 0)
+public class Bullet(Vector2 startPosition, Vector2 velocity, float _radian = 0, float damage = 10)
 {
         public Vector2 Position { get; set; } = startPosition;
         private Vector2 Velocity = velocity;
@@ -8,6 +8,7 @@ public class Bullet(Vector2 startPosition, Vector2 velocity, float _radian = 0)
         public float radian {get; private set;} = _radian;
 
         public Rectangle HurtBox {get; private set;}
+        public float Damage = damage;
 
         public void Update(float deltaTime)
         {
@@ -23,10 +24,6 @@ public class Bullet(Vector2 startPosition, Vector2 velocity, float _radian = 0)
 
             
         }
-
-
-
-         
 
         public bool CollidesWith(Rectangle collistionObject)
         {

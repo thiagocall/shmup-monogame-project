@@ -8,14 +8,14 @@ namespace SnakeX;
 public class GameManager : Game
 {
     private float _score;
-
+    private float _lastimePaused = 0f;
     private Player player;
 
     private GamePlayState _gameState = GamePlayState.Play; 
     private int _nextPowerUP = 1000;
     private SpriteFont _font;
-    private byte _shipDamage = 8;
-    private string _shipDamageString = "DDDDD";
+    private byte _shipDamage = 3;
+    private string _shipDamageString = "DDD";
     private SpriteFont _damageFont;
     private Texture2D _starShipTexture;
     private Texture2D _bulletTexture;
@@ -26,16 +26,16 @@ public class GameManager : Game
     Vector2 _starShipPosition;
     float _starShipSpeed;
     // Configurações
-    private const float _bulletSpeed = 1000f; // Velocidade do projétil (pixels por segundo)
-    private const float _bulletRate = 80; // _bulletRate / 60 tiros Tiros por segundo 
+    private float _bulletSpeed = 2500; // Velocidade do projétil (pixels por segundo)
+    private float _bulletRate = 100; // _bulletRate / 60 tiros Tiros por segundo 
     private ushort _reloadSpeed = 7; // _bulletRate / 60 tiros Tiros por segundo 
-    private ushort _bulletStatus = 60;
+    private ushort _bulletStatus = 30;
     float _starShipRotate = 0f;
     Rectangle _stickPos = new Rectangle(0, 0, 32, 32);
-    short _starShipdirection = 0;  // 1 - direita, -1-esquerda
+    Vector2 _starShipdirection = new Vector2();  // 1 - direita, -1-esquerda
     private const float ShipRadius = 40f;
     private Vector2 shipSize = new Vector2(50, 50);
-    private Vector2 bulletSize = new Vector2(20, 20);
+    private Vector2 bulletSize = new Vector2(50, 50);
     private bool BeastModeOne = true;
 
     private float lastTime = 0f;
@@ -44,7 +44,7 @@ public class GameManager : Game
     private List<Asteroid> _asteroids = new List<Asteroid>();
     private Texture2D _asteroidTexture;
     private Texture2D _asteroidTexture2;
-    private float AsteroidSpawnRate = 0.2f; // Asteroides por segundo
+    private float AsteroidSpawnRate = 2f; // Asteroides por segundo
     private float _timeSinceLastAsteroid = 0f;
     private Random _random = new Random();
     private const float ShipCollisionWidth = 10f; // Largura do retângulo de colisão
@@ -71,9 +71,13 @@ public class GameManager : Game
     private SoundEffect _bulleSound;
     private SoundEffectInstance _bulleSoundInstance;
     private SoundEffect _colisionSound;
+    private SoundEffect _alertCollisionSound;
     private SoundEffect _powerupSound;
     private Song _playerSound;
     private Song _gameoverSound;
+
+
+    
 
     // Explosions
     private List<Explosion> _explosions = new List<Explosion>();
@@ -98,7 +102,7 @@ public class GameManager : Game
 
         _starShipPosition = new Vector2(_graphics.PreferredBackBufferWidth / 2,
                                    _graphics.PreferredBackBufferHeight / 2);
-        _starShipSpeed = 500f;
+        _starShipSpeed = 600f;
 
 
         _gameState = GamePlayState.Play;
@@ -120,11 +124,12 @@ public class GameManager : Game
 
         // TODO: use this.Content to load your game content here
         _starShipTexture = Content.Load<Texture2D>("Player/spritesheet_player");
-        _bulletTexture = Content.Load<Texture2D>("bullet");
+        _bulletTexture = Content.Load<Texture2D>("shot_sprite_2");
         _startSound = Content.Load<SoundEffect>("intro_sound-1");
-        _explosionSound = Content.Load<SoundEffect>("explosion_sound");
-        _bulleSound = Content.Load<SoundEffect>("bullet_sound");
+        _explosionSound = Content.Load<SoundEffect>("Sounds/explosion_4");
+        _bulleSound = Content.Load<SoundEffect>("Sounds/shot_sound_2");
         _colisionSound = Content.Load<SoundEffect>("ship_colision_sound");
+        _alertCollisionSound = Content.Load<SoundEffect>("ship_alarm");
         _powerupSound = Content.Load<SoundEffect>("Sounds/level_up");
         _playerSound = Content.Load<Song>("Sounds/fase1_sound");
         _gameoverSound = Content.Load<Song>("Sounds/gameover_sound");
@@ -185,17 +190,17 @@ public class GameManager : Game
 
         if(player == null){
             player = new Player(new Vector2(_graphics.PreferredBackBufferWidth / 2,
-                                   _graphics.PreferredBackBufferHeight / 2), Vector2.Zero,10f,_starShipTexture,3,3);
+                                   _graphics.PreferredBackBufferHeight / 2), Vector2.Zero,10f,_starShipTexture,3,3,0.1f,3,3,9);
         }
 
         // Update camera
 
         if(lastTime > 32){
         if (_backgroundPosition.Location.Y == 0) _backgroundPosition = new Rectangle(0, _backGround.Height/4*3, _backGround.Width,_backGround.Height/4);
-
+         
+         if(lastTime > 0 && _backgroundPosition.Location.Y > 0)
           _backgroundPosition = new Rectangle(0, _backgroundPosition.Y - 1, _backGround.Width,_backGround.Height/4);
-
-           lastTime = 0;
+          lastTime = 0;
         }
 
         lastTime += gameTime.ElapsedGameTime.Milliseconds;
@@ -223,8 +228,8 @@ public class GameManager : Game
         };
 
          if(_score/_nextPowerUP % 1 == 0 && _score > 0) {
-            _shipDamage += 1;
-            _nextPowerUP += _nextPowerUP;
+             player.Repair(1);
+            _nextPowerUP += 1000;
             _powerupSound.Play();
 
             UpdateDamage();
@@ -263,10 +268,13 @@ public class GameManager : Game
                 if (enemy.EnemyRectangle.Contains(_bullets[j].HurtBox))
                 {
                     Rectangle rec = Rectangle.Intersect(_bullets[j].HurtBox, enemy.EnemyRectangle);
-                    _explosions.Add(new Explosion(enemy.EnemyRectangle.Location.ToVector2()));
+                    _explosions.Add(new Explosion(_bullets[j].HurtBox.Center.ToVector2()));
+                    Console.WriteLine(enemy.EnemyRectangle.Center.ToVector2());
                     _bullets.RemoveAt(j);
                     _enemies.RemoveAt(ii);
+                    SoundEffect.MasterVolume = 0.5f;
                     _explosionSound.Play();
+
                     _score += 50;
 
                     // Remover projétil e asteroide
@@ -276,18 +284,19 @@ public class GameManager : Game
                 }
             }
 
-            if (ii < _enemies.Count && shipCollisionRectangle.Intersects(enemy.EnemyRectangle))
+            if (ii < _enemies.Count && shipCollisionRectangle.Intersects(enemy.EnemyRectangle) && !player._isDamaged)
             {
                 _colisionSound.Play();
+                _alertCollisionSound.Play();
                 _enemies.RemoveAt(ii);
                 _explosions.Add(new Explosion(enemy.EnemyRectangle.Location.ToVector2()));
                 // _explosionSound.Play();
                 // Apply Ship damage
 
-                _shipDamage -= 1;
+                player.OnDamage(1);
                 // Logic to shipDamage:
 
-                if (_shipDamage < 1)
+                if (player._shipDamage < 1)
                 {
                     _gameState = GamePlayState.GameOver;
                     MediaPlayer.Stop();// Encerrar o jogo ou tratar a colisão
@@ -367,12 +376,20 @@ public class GameManager : Game
                 if (_asteroids[i].AsteroidRectangle.Contains(projetilRectangle))
                 {
                     Rectangle rec = Rectangle.Intersect(projetilRectangle, _asteroids[i].AsteroidRectangle);
-                    _explosions.Add(new Explosion(_asteroids[i].AsteroidRectangle.Location.ToVector2())); // Adiciono na lista das explosões da tela
+
+                    _asteroids[i].Health -= _bullets[j].Damage;
                     _bullets.RemoveAt(j); // removo o projétil
-                    _asteroids.RemoveAt(i); // removo o asteroide
-                    _explosionSound.Play(); // faço o som booommm;
-                    _score += 10; // marco o score /// mas isso vou melhorar pra frente
+
+                    if(_asteroids[i].Health < 0){
+                            // Asteroide derrotado
+                        _explosions.Add(new Explosion(_asteroids[i].AsteroidRectangle.Location.ToVector2())); // Adiciono na lista das explosões da tela
+                        _asteroids.RemoveAt(i); // removo o asteroide
+                        _explosionSound.Play(); // faço o som booommm;
+                        _score += 10; // marco o score /// mas isso vou melhorar pra frente
                     // tipo Player.Score += 10 // não refaturei ainda o Player completo
+                    }
+
+                    
 
 
                     // Remover projétil e asteroide
@@ -382,16 +399,17 @@ public class GameManager : Game
                 }
             }
 
-            if (i < _asteroids.Count && shipCollisionRectangle.Intersects(_asteroids[i].AsteroidRectangle))
+            if (i < _asteroids.Count && shipCollisionRectangle.Intersects(_asteroids[i].AsteroidRectangle) && !player._isDamaged)
             {
                 _colisionSound.Play();
+                _alertCollisionSound.Play();
                 _asteroids.RemoveAt(i);
                 // Apply Ship damage
 
-                _shipDamage -= 1;
+                player.OnDamage(1);
                 // Logic to shipDamage:
 
-                if (_shipDamage < 1)
+                if (player._shipDamage < 1)
                 {
                     _gameState = GamePlayState.GameOver;
                     MediaPlayer.Stop();// Encerrar o jogo ou tratar a colisão
@@ -424,8 +442,6 @@ public class GameManager : Game
 
         // Lógica de inversão de rotação
 
-        // radians += 0.0174533f * 4 * _starShipdirection;
-
         // Atualizar projéteis
         for (int i = _bullets.Count - 1; i >= 0; i--)
         {
@@ -453,7 +469,7 @@ public class GameManager : Game
 
         _starShipRotate = radians;
 
-        _starShipdirection = 0;
+        _starShipdirection = Vector2.Zero;
 
         var kstate = Keyboard.GetState();
         // var msstate = Mouse.GetState();
@@ -490,23 +506,21 @@ public class GameManager : Game
         {
             _starShipPosition.Y -= updatedStarShipSpeed;
             player.Position = _starShipPosition;
-            _starShipdirection = 0;
+            _starShipdirection = new Vector2(_starShipdirection.X, 1);
         }
 
         if (kstate.IsKeyDown(Keys.S))
         {
             _starShipPosition.Y += updatedStarShipSpeed;
             player.Position = _starShipPosition;
-            _starShipdirection = 0;
+            _starShipdirection = new Vector2(_starShipdirection.X, -1);
         }
 
         if (kstate.IsKeyDown(Keys.A))
         {
             _starShipPosition.X -= updatedStarShipSpeed;
             player.Position = _starShipPosition;
-            _starShipdirection = -1;
-            // radians += 0.0174533f * 4 * _starShipdirection;
-            // _starShipRotate = radians;
+            _starShipdirection = new Vector2(-1, _starShipdirection.Y);
         }
          if (kstate.IsKeyDown(Keys.R))
         {
@@ -517,9 +531,7 @@ public class GameManager : Game
         {
             _starShipPosition.X += updatedStarShipSpeed;
             player.Position = _starShipPosition;
-            _starShipdirection = 1;
-            // radians += 0.0174533f * 4 * _starShipdirection;
-            // _starShipRotate = radians;
+            _starShipdirection = new Vector2(1, _starShipdirection.Y);
         }
 
 
@@ -547,6 +559,9 @@ public class GameManager : Game
 
         player.Update(deltaTime,_starShipdirection);
 
+
+        // Se a nave estiver danificada, atualizar o timer e alternar visibilidade
+
         // Recupera cadencia de tiro:
         RecuperaCadencia();
 
@@ -559,7 +574,7 @@ public class GameManager : Game
     {
         _shipDamageString = "";
 
-        for (int ii = 0; ii < _shipDamage; ii++)
+        for (int ii = 0; ii < player._shipDamage; ii++)
         {
             _shipDamageString += "D";
         }
@@ -576,8 +591,6 @@ public class GameManager : Game
 
         _spriteBatch.Begin();
 
-
-
          _spriteBatch.Draw(
             _backGround,
             Vector2.Zero, new Rectangle(0, _backGround.Height/4*3,_backGround.Width,_backGround.Height/4), Color.White,
@@ -593,9 +606,9 @@ public class GameManager : Game
 
 
         // Exibir o score no canto superior esquerdo
-        _spriteBatch.DrawString(_font, $"{_score}", new Vector2(10, 10), Color.SeaGreen,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
-        _spriteBatch.DrawString(_font, $"{"DAMAGE:"}", new Vector2(10, 40), Color.SeaGreen,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
-        _spriteBatch.DrawString(_damageFont, $"{_shipDamageString}", new Vector2(110, 42), Color.SeaGreen,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
+        _spriteBatch.DrawString(_font, $"{_score}", new Vector2(10, 10), Color.Aquamarine,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
+        _spriteBatch.DrawString(_font, $"{"DAMAGE:"}", new Vector2(10, 40), Color.Aquamarine,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
+        _spriteBatch.DrawString(_damageFont, $"{_shipDamageString}", new Vector2(110, 42), Color.Aquamarine,0f,Vector2.Zero,Vector2.One,SpriteEffects.None,0);
 
         // _spriteBatch.Draw(_starShipTexture,
         // _starShipPosition,
@@ -648,17 +661,6 @@ public class GameManager : Game
         // Desenha os Asteroides
         foreach (var asteroid in _asteroids)
         {
-            // _spriteBatch.Draw(
-            //     _asteroidTexture,
-            //     asteroid.Position,
-            //     null,
-            // Color.White,
-            // asteroid.Radians,
-            // new Vector2(_asteroidTexture.Width / 2, _asteroidTexture.Height / 2),
-            // Vector2.Divide(Vector2.One, 15),
-            // SpriteEffects.None,
-            // 0f);
-
             asteroid.Draw();
         }
 
@@ -762,7 +764,7 @@ public class GameManager : Game
 
         Vector2 rotatedLeftWing = RotatePoint(leftWing, angle);
 
-        Vector2 center = new Vector2(startPosition.X + 10f, startPosition.Y + 25f);
+        Vector2 center = new Vector2(startPosition.X + 10f, startPosition.Y + 15f);
 
         var rotated = center + rotatedLeftWing;
 
@@ -787,7 +789,7 @@ public class GameManager : Game
 
 
         // Criar um novo projétil e adicioná-lo à lista
-        var position_fire1 = shipRect.Location.ToVector2() + new Vector2(5f, -60);
+        var position_fire1 = shipRect.Location.ToVector2() + new Vector2(5f, -20);
         _bullets.Add(new Bullet(position_fire1, velocity, _starShipRotate));
 
         var windPosLeft = CalculateShipTWindLeft(_starShipRotate);
@@ -802,7 +804,10 @@ public class GameManager : Game
             var position_fire3 = position_fire1 + new Vector2(10f,15);
             var position_fire4 = position_fire1 + new Vector2(-20f, 25f);
             var position_fire5 = position_fire1 + new Vector2(20f, 25f);
+            var position_fire6 = position_fire1 + new Vector2(20f, 25f);
+            var position_fire7 = position_fire1 + new Vector2(20f, 25f);
 
+            
             _bullets.Add(new Bullet(position_fire2, velocity, _starShipRotate));
             _bullets.Add(new Bullet(position_fire3, velocity, _starShipRotate));
             _bullets.Add(new Bullet(position_fire4, velocity, _starShipRotate));
@@ -1006,14 +1011,15 @@ private Vector2 RotatePointForRelative(Vector2 point, Vector2 relative, float an
                 _enemies.Clear();
                 _explosions.Clear();
                 _score = 0;
-                _shipDamage = 5;
+                player.Repair(3);
                 BeastModeOne = false;
-                _shipDamageString = "DDDDD";
+                _shipDamageString = "DDD";
                 _starShipPosition = new Vector2(_graphics.PreferredBackBufferWidth / 2,
                            _graphics.PreferredBackBufferHeight / 2);
-                _starShipSpeed = 500f;
+                // _starShipSpeed = 500f;
 
                 MediaPlayer.Stop();
+                MediaPlayer.Volume = 0.5f;
                 MediaPlayer.Play(_playerSound);
                 BeastModeOne = true;
     }

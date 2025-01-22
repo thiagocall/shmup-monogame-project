@@ -33,7 +33,7 @@ namespace SnakeX.Models
     public void Update(float deltaTime)
     {
         Timer -= deltaTime;
-        int f = _anim.Update(0);
+        int f = _anim.Update(Vector2.Zero);
         if (f == 3){
              _anim.Stop();
              this.IsExpired = true;

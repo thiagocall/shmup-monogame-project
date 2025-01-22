@@ -74,11 +74,11 @@ namespace SnakeX.Models
             return _frame;
         }
 
-        public int Update(int direction){
+        public int Update(Vector2 direction){
             if(!_active) return 0;
             var offset = 0;
             _frameTimeLeft -= Globals.TotalSeconds;
-            switch (direction)
+            switch (direction.X)
             {
                 case -1:
                 offset = 6;
