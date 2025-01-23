@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using Microsoft.Xna.Framework.Media;
 using SnakeX.Models;
-using SnakeX.Sounds;
+using SnakeX.Manager;
 
 namespace SnakeX;
 
@@ -12,8 +12,6 @@ public class GameManager : Game
     private readonly ScoreService scoreService;
     private float _lastimePaused = 0f;
     private Player player;
-
-    private int _bullet_wheel = 5;
 
     private GamePlayState _gameState = GamePlayState.Play; 
     private int _nextPowerUP = 1000;
@@ -49,6 +47,8 @@ public class GameManager : Game
     private Texture2D _asteroidTexture;
     private Texture2D _asteroidTexture2;
     private float AsteroidSpawnRate = 2f; // Asteroides por segundo
+    private float _timeToLaunch = 0.5f; //  Time to throw the first Enemy
+    // private float _secondsFromLaunch = 0;
     private float _timeSinceLastAsteroid = 0f;
     private Random _random = new Random();
     private const float ShipCollisionWidth = 10f; // Largura do retângulo de colisão
@@ -56,6 +56,7 @@ public class GameManager : Game
 
     // Enemies
     private List<Enemy> _enemies = new List<Enemy>();
+    private List<Enemy2> _enemies2 = new List<Enemy2>();
 
 
     // Background
@@ -90,7 +91,7 @@ public class GameManager : Game
     {
         _graphics = new GraphicsDeviceManager(this);
         Content.RootDirectory = "Content";
-        IsMouseVisible = false;
+        IsMouseVisible = true;
         scoreService = new ScoreService();
         Globals.gameEventManager.Register(Events.Game.GameEvent.OnPlayerDestroied, (p) => OnPlayerDestroied());
     }
@@ -99,9 +100,11 @@ public class GameManager : Game
     {
         // TODO: Add your initialization logic here
 
-        Globals.WindowSize = new(1080, 720);
+        Globals.WindowSize = new(1024, 768);
         _graphics.PreferredBackBufferWidth = Globals.WindowSize.X;
         _graphics.PreferredBackBufferHeight = Globals.WindowSize.Y;
+        _graphics.IsFullScreen = true;
+        _graphics.PreferredDepthStencilFormat = DepthFormat.Depth24;
         _graphics.ApplyChanges();
 
         Globals.Content = Content;
@@ -256,10 +259,31 @@ public class GameManager : Game
 
         if (_timeSinceLastAsteroid >= 1f / AsteroidSpawnRate)
         {
-            SpawnAsteroid();
-            SpawnEnemies();
+            // SpawnAsteroid();
+            // SpawnEnemies();
             _timeSinceLastAsteroid = 0f;
         }
+
+        // Throw Enemy
+
+          if (_timeToLaunch < 0)
+        {
+            // SpawnAsteroid();
+            // SpawnEnemies();
+             SpawnEnemies2();
+            _timeSinceLastAsteroid = 0f;
+            _timeToLaunch = 0.5f;
+        }
+
+        _timeToLaunch -= (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+        for (int ii = _enemies2.Count - 1; ii >= 0; ii--)
+        {
+            var enemy = _enemies2[ii];
+            enemy.Update(deltaTime);
+
+        }
+
 
         // Inimigos Colisão
         for (int ii = _enemies.Count - 1; ii >= 0; ii--)
@@ -278,7 +302,6 @@ public class GameManager : Game
                 if (enemy.EnemyRectangle.Intersects(_bullets[j].HurtBox))
                 {
                     _explosions.Add(new Explosion(_bullets[j].HurtBox.Center.ToVector2()));
-                    Console.WriteLine(enemy.EnemyRectangle.Center.ToVector2());
                     _bullets.RemoveAt(j);
                     _enemies.RemoveAt(ii);
                     SoundEffect.MasterVolume = 0.5f;
@@ -293,6 +316,8 @@ public class GameManager : Game
                     break; // Evitar erros de índice após remover o asteroide
                 }
             }
+
+            
 
             if (ii < _enemies.Count && shipCollisionRectangle.Intersects(enemy.EnemyRectangle) && !player._isDamaged)
             {
@@ -678,6 +703,12 @@ public class GameManager : Game
             enemy.Draw(_spriteBatch);
         }
 
+         // Desenha os Inimigos
+         foreach (var enemy2 in _enemies2)
+        {
+            enemy2.Draw(_spriteBatch);
+        }
+
         foreach (var explosion in _explosions)
         {
             explosion.Draw(_spriteBatch);
@@ -961,6 +992,40 @@ private void SpawnEnemies()
     _enemies.Add(new Enemy(position, velocity, radius));
 }
 
+private void SpawnEnemies2()
+{
+    // Ponto de origem (não usado aqui diretamente, mas pode ser relevante para spawn controlado)
+    Vector2 origem = new Vector2(200, -10);
+
+    // Definir velocidade base do asteroide
+    float velocity_asteroid = _random.Next(300-100) + 100;
+    // Probabilidade de um asteroide rápido
+    if (_random.Next(100) < 60) velocity_asteroid *= 2;
+
+    // Posição inicial em uma borda da tela
+    Vector2 position = new Vector2(
+        _random.Next(Globals.WindowSize.X), // X aleatório
+        _random.Next(2) == 0 ? -10 : Globals.WindowSize.Y + 10 // Y: calcula probabilidade 50%
+    );
+
+    // Cálculo do vetor direção apontando para a nave
+    Vector2 direction = player.Position - position;
+
+    // Normalizar a direção para transformá-la em um vetor unitário
+    if (direction.Length() > 0)
+    {
+        direction.Normalize();
+    }
+
+    // Multiplicar a direção normalizada pela velocidade do asteroide
+    Vector2 velocity = direction * velocity_asteroid;
+
+    float radius = 20f; // Tamanho fixo para os asteroides
+
+    // Adicionar o asteroide à lista de inimigos
+    _enemies.Add(new Enemy(position, velocity, radius));
+}
+
 private Rectangle GetShipCollisionRectangle()
 {
     return new Rectangle(
@@ -1031,6 +1096,7 @@ private Vector2 RotatePointForRelative(Vector2 point, Vector2 relative, float an
                 _explosions.Clear();
                 _score = 0;
                 player.Repair(3);
+                _nextPowerUP = 1000;
                 _shipDamageString = "DDD";
                 _starShipPosition = new Vector2(_graphics.PreferredBackBufferWidth / 2,
                            _graphics.PreferredBackBufferHeight / 2);
